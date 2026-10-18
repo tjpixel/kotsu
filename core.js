@@ -21,14 +21,14 @@ const ALLDAYS=[0,1,2,3,4,5,6];
 
 /* ═════ ÁREAS Y SUGERENCIAS ═════ */
 const AREAS={
-  mente:{n:'Mente',s:'Calma, atención y claridad',ic:'lotus'},
-  cuerpo:{n:'Cuerpo',s:'Moverte y sentirte bien',ic:'dumbbell'},
-  aprender:{n:'Aprender',s:'Estudio, idiomas, proyectos',ic:'cap'},
-  descanso:{n:'Descanso',s:'Dormir mejor y desconectar',ic:'moon'},
-  arte:{n:'Arte y música',s:'Cantar, tocar, dibujar, escribir',ic:'note'},
-  dojo:{n:'Artes marciales',s:'Tu práctica en el dojo y fuera',ic:'belt'},
-  trabajo:{n:'Trabajo',s:'Foco y orden en el día',ic:'target'},
-  otros:{n:'Otros',s:'Lo que no encaja en ninguna',ic:'star'}
+  mente:{n:'Mente',sh:'Mente',s:'Calma, atención y claridad',ic:'lotus'},
+  cuerpo:{n:'Cuerpo',sh:'Cuerpo',s:'Moverte y sentirte bien',ic:'dumbbell'},
+  aprender:{n:'Aprender',sh:'Aprender',s:'Estudio, idiomas, proyectos',ic:'cap'},
+  descanso:{n:'Descanso',sh:'Descanso',s:'Dormir mejor y desconectar',ic:'moon'},
+  arte:{n:'Arte y música',sh:'Arte',s:'Cantar, tocar, dibujar, escribir',ic:'note'},
+  dojo:{n:'Artes marciales',sh:'Dojo',s:'Tu práctica en el dojo y fuera',ic:'belt'},
+  trabajo:{n:'Trabajo',sh:'Trabajo',s:'Foco y orden en el día',ic:'target'},
+  otros:{n:'Otros',sh:'Otros',s:'Lo que no encaja en ninguna',ic:'star'}
 };
 const AREA_ORDER=Object.keys(AREAS);
 /* mode: check (marcar) · timer (con tiempo, min minutos) */
@@ -99,6 +99,11 @@ function streakOf(h){
 }
 function rateOf(h,n){
   let s=0,k=0;for(let i=0;i<n;i++){const d=shiftD(T(),-i);if(i===0&&!doneOn(h.id,d))continue;if(schedOn(h,d)){s++;if(doneOn(h.id,d))k++}}
+  return s?k/s:null;
+}
+/* % de un periodo: n días que acaban «off» días antes de hoy (hoy solo cuenta si ya está hecho) */
+function rateWin(h,off,n){
+  let s=0,k=0;for(let i=off;i<off+n;i++){const d=shiftD(T(),-i);if(i===0&&!doneOn(h.id,d))continue;if(schedOn(h,d)){s++;if(doneOn(h.id,d))k++}}
   return s?k/s:null;
 }
 function firstDay(){

@@ -543,10 +543,15 @@ function renderProg(){
   P1.push(h);h='';
   if(A.length){
     const ar=AREA_ORDER.filter(k=>A.some(x=>x.a===k));
-    h+='<div class="sec"><div class="stitle"><h3 class="t3">Áreas</h3><span class="fn l2">Últimos 30 días</span></div><div class="pad"><div class="agrid">'+ar.map(k=>{
-      const r=avg(A.filter(x=>x.a===k).map(x=>rateOf(x,30)).filter(r=>r!=null));
-      return '<div class="card" style="padding:12px 12px 11px"><div class="row" style="gap:8px"><span class="ic soft" style="width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex-shrink:0">'+ic(AREAS[k].ic,15)+'</span><span class="fn semi grow ell">'+AREAS[k].n+'</span></div>'+
-        '<p class="t3 num" style="margin-top:8px">'+pctTxt(r)+'</p><div class="areabar"><i style="width:'+((r||0)*100).toFixed(0)+'%"></i></div></div>'}).join('')+'</div></div></div>';
+    const AV=ar.map(k=>{const L=A.filter(x=>x.a===k);return{k,r:avg(L.map(x=>rateOf(x,30)).filter(r=>r!=null)),p:avg(L.map(x=>rateWin(x,30,30)).filter(r=>r!=null)),n:L.length}});
+    h+='<div class="sec"><div class="stitle"><h3 class="t3">Áreas</h3><span class="fn l2">Últimos 30 días</span></div><div class="pad">'+
+      (AV.length>=3?'<div class="card" style="padding:10px 6px 14px">'+radarSVG(AV)+
+        '<div class="row" style="justify-content:center;gap:16px;margin-top:4px"><span class="c1 l2 row" style="gap:6px"><i style="width:14px;height:3px;border-radius:2px;background:var(--ink);display:block"></i>Últimos 30 días</span>'+
+        (AV.some(o=>o.p!=null)?'<span class="c1 l2 row" style="gap:6px"><i style="width:14px;height:0;border-top:2px dashed var(--label3);display:block"></i>30 anteriores</span>':'')+'</div>'+
+        radarNote(AV)+'</div>'
+      :'<div class="agrid">'+AV.map(o=>'<div class="card" style="padding:12px 12px 11px"><div class="row" style="gap:8px"><span class="ic soft" style="width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex-shrink:0">'+ic(AREAS[o.k].ic,15)+'</span><span class="fn semi grow ell">'+AREAS[o.k].n+'</span></div>'+
+        '<p class="t3 num" style="margin-top:8px">'+pctTxt(o.r)+'</p><div class="areabar"><i style="width:'+((o.r||0)*100).toFixed(0)+'%"></i></div></div>').join('')+'</div>')+
+      '</div></div>';
     const R=A.map(x=>({x,r:rateOf(x,30),S:streakOf(x)})).sort((a,b)=>(b.r??-1)-(a.r??-1));
     const cell=o=>'<button class="cell" onclick="openHabit(\''+o.x.id+'\')">'+hico(o.x)+'<div class="cb"><div class="tt"><p class="bd ell">'+esc(o.x.n)+'</p><p class="fn l2">'+(o.S.cur?plural(o.S.cur,'día')+' seguido'+(o.S.cur===1?'':'s'):'Sin racha')+(o.S.best>o.S.cur?' · mejor '+o.S.best:'')+'</p></div><span class="val num">'+pctTxt(o.r)+'</span>'+chev()+'</div></button>';
     if(R.length<=6)h+='<div class="sec"><div class="stitle"><h3 class="t3">Hábitos</h3><span class="fn l2">Racha · 30 días</span></div><div class="pad"><div class="group">'+R.map(cell).join('')+'</div></div></div>';
@@ -596,6 +601,32 @@ function habitMapCard(){
     '<p class="fn l2" style="padding:2px 2px 12px">Cada casilla, un hábito en un mes: el % de los días que tocaba y lo hiciste</p>'+
     '<div class="hm"><div class="hm-fix">'+fix+'</div><div class="hm-sc"><div class="hm-g" style="grid-template-columns:repeat('+A.length+',minmax(36px,1fr))">'+grid+'</div></div></div>'+
     '<div class="row" style="justify-content:flex-end;gap:6px;margin-top:12px"><span class="c1 l3">0 %</span><span class="hleg">'+['h1','h2','h3','h4','h5'].map(c=>'<i class="hm-x '+c+'" style="width:14px;height:10px;border-radius:3px;min-height:0"></i>').join('')+'</span><span class="c1 l3">100 %</span></div></div>';
+}
+/* radar de áreas: con seis áreas sale el hexágono de NEXA */
+function radarSVG(AV){
+  const W=340,H=290,cx=170,cy=146,R=88,n=AV.length,ang=i=>(-90+i*360/n)*Math.PI/180;
+  const P=(i,v)=>[cx+R*v*Math.cos(ang(i)),cy+R*v*Math.sin(ang(i))];
+  const poly=vals=>vals.map((v,i)=>P(i,Math.max(.02,v||0)).map(z=>z.toFixed(1)).join(',')).join(' ');
+  let g='';
+  [.25,.5,.75,1].forEach(t=>{g+='<polygon points="'+AV.map((_,i)=>P(i,t).map(z=>z.toFixed(1)).join(',')).join(' ')+'" fill="'+(t===1?'var(--fill2)':'none')+'" stroke="var(--sep)" stroke-width="1"/>'});
+  AV.forEach((_,i)=>{const e=P(i,1);g+='<line x1="'+cx+'" y1="'+cy+'" x2="'+e[0].toFixed(1)+'" y2="'+e[1].toFixed(1)+'" stroke="var(--sep)" stroke-width="1"/>'});
+  g+='<text x="'+(cx+4)+'" y="'+(cy-R*.5+10)+'" font-size="9" fill="var(--label3)">50 %</text>';
+  if(AV.some(o=>o.p!=null))g+='<polygon points="'+poly(AV.map(o=>o.p))+'" fill="none" stroke="var(--label2)" stroke-width="1.6" stroke-dasharray="4 4" stroke-linejoin="round"/>';
+  g+='<polygon points="'+poly(AV.map(o=>o.r))+'" fill="var(--tint)" fill-opacity=".38" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>';
+  AV.forEach((o,i)=>{const q=P(i,Math.max(.02,o.r||0));g+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3.6" fill="var(--ink)"/>'});
+  AV.forEach((o,i)=>{const a=ang(i),lx=cx+(R+24)*Math.cos(a),ly=cy+(R+20)*Math.sin(a),c=Math.cos(a),anc=Math.abs(c)<.2?'middle':(c>0?'start':'end');
+    const up=Math.sin(a)<-.5,dy=up?-8:(Math.sin(a)>.5?6:-2),d=o.p!=null&&o.r!=null?o.r-o.p:null;
+    g+='<text x="'+lx.toFixed(1)+'" y="'+(ly+dy).toFixed(1)+'" text-anchor="'+anc+'" font-size="12" font-weight="600" fill="var(--label)">'+(AREAS[o.k].sh||AREAS[o.k].n)+'</text>'+
+      '<text x="'+lx.toFixed(1)+'" y="'+(ly+dy+15).toFixed(1)+'" text-anchor="'+anc+'" font-size="11.5" fill="var(--label2)" font-variant-numeric="tabular-nums">'+pctTxt(o.r)+
+      (d!=null&&Math.abs(d)>=.05?'<tspan fill="'+(d>0?'var(--ink)':'var(--amber)')+'" font-weight="600"> '+(d>0?'▲':'▼')+Math.round(Math.abs(d)*100)+'</tspan>':'')+'</text>';
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Radar de áreas: '+AV.map(o=>AREAS[o.k].n+' '+pctTxt(o.r)).join(', ')+'">'+g+'</svg>';
+}
+function radarNote(AV){
+  const ok=AV.filter(o=>o.r!=null);if(ok.length<3)return'';
+  const hi=ok.reduce((a,b)=>b.r>a.r?b:a),lo=ok.reduce((a,b)=>b.r<a.r?b:a);
+  if(hi.r-lo.r<.1)return'<p class="fn l2 center" style="padding:10px 14px 0">Tus áreas van parejas: buen equilibrio.</p>';
+  return '<p class="fn l2 center balance" style="padding:10px 14px 0">Tu punto fuerte es <b class="ink">'+AREAS[hi.k].n.toLowerCase()+'</b>. Donde más margen tienes: <b>'+AREAS[lo.k].n.toLowerCase()+'</b>.</p>';
 }
 function openAllHabits(){
   openSheet(()=>{const R=activeHabits().map(x=>({x,r:rateOf(x,30),S:streakOf(x)})).sort((a,b)=>(b.r??-1)-(a.r??-1));
