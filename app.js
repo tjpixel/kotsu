@@ -502,6 +502,7 @@ function renderProg(){
   h+='<div class="card" style="padding:16px 16px 14px"><div class="row" style="justify-content:space-between"><p class="fn l2">'+(isPlus()?'Último año':'Últimas '+wk+' semanas')+'</p>'+(isPlus()?'':'<button class="pill plus" onclick="openPlus()">Año entero</button>')+'</div>'+
     '<p class="t2 num" style="margin-top:2px">'+plural(full,'día')+' cumplido'+(full===1?'':'s')+'</p><p class="fn l2">De '+tot+' con hábitos · cumplido es hacer el 80 % o más</p><div style="margin-top:14px">'+heatmap(wk)+'</div>'+
     '<div class="row" style="justify-content:flex-end;gap:6px;margin-top:10px"><span class="c1 l3">Menos</span><span class="hleg"><i style="background:var(--fill2)"></i><i style="background:var(--tint-soft)"></i><i style="background:color-mix(in srgb,var(--tint) 60%,var(--fill2))"></i><i style="background:var(--tint)"></i></span><span class="c1 l3">Más</span></div></div>';
+  h+=habitMapCard();
   if(DB.profile.moodOn!==false){
     const L=Array.from({length:30},(_,i)=>{const d=shiftD(T(),i-29);return{v:moodOn(d),k:dayKind(d)}}),vals=L.map(m=>m.v).filter(Boolean),I=moodInsight(60);
     h+='<div class="card" style="padding:16px 16px 14px"><p class="fn l2">Ánimo</p><div class="row" style="margin-top:2px;gap:8px"><span class="t2 num">'+fmt1(avg(vals.slice(-14)))+'<span class="sb l3 semi"> de 5</span></span></div>'+
@@ -523,6 +524,36 @@ function renderProg(){
     '<button class="cell" onclick="openNotes()"><span class="ic soft">'+ic('pen',18)+'</span><div class="cb"><div class="tt"><p class="bd">Notas</p>'+(isPlus()?'':'<p class="fn l2">Últimos 30 días; todas con Plus</p>')+'</div>'+chev()+'</div></button>'+
     '</div></div></div>';
   $('v-progreso').innerHTML=h;
+}
+/* mapa de hábitos: cada hábito en un mes, como el heatmap de NEXA */
+let HMY=new Date().getFullYear();
+function monthRate(x,y,m){
+  let s=0,k=0;const dim=new Date(y,m+1,0).getDate(),today=T();
+  for(let i=1;i<=dim;i++){const d=dstr(new Date(y,m,i));if(d>today)break;if(schedOn(x,d)){s++;if(doneOn(x.id,d))k++}}
+  return s?k/s:null;
+}
+const hmLevel=r=>r==null?'':(r>.8?'h5':(r>.6?'h4':(r>.4?'h3':(r>.2?'h2':(r>0?'h1':'h0')))));
+function habitMapCard(){
+  const A=activeHabits().slice().sort((a,b)=>AREA_ORDER.indexOf(a.a)-AREA_ORDER.indexOf(b.a)||byTime(a,b));if(!A.length)return'';
+  const years=[...new Set(Object.keys(DB.log).map(d=>+d.slice(0,4)).concat([new Date().getFullYear()]))].sort();
+  if(!years.includes(HMY))HMY=years[years.length-1];
+  const y=HMY,nowY=new Date().getFullYear(),nowM=new Date().getMonth(),M3=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  let fix='<div class="hm-c"></div>',grid='';
+  grid+=A.map(x=>'<button class="hm-h" onclick="openHabit(\''+x.id+'\')" aria-label="'+esc(x.n)+'" title="'+esc(x.n)+'">'+ic(x.ic,16)+'</button>').join('');
+  for(let m=0;m<12;m++){
+    const fut=y>nowY||(y===nowY&&m>nowM);
+    fix+='<div class="hm-m'+(y===nowY&&m===nowM?' now':'')+'">'+M3[m]+'</div>';
+    A.forEach(x=>{
+      if(fut){grid+='<i class="hm-x fut"></i>';return}
+      const r=monthRate(x,y,m),p=r==null?null:Math.round(r*100);
+      grid+='<button class="hm-x '+hmLevel(r)+'" onclick="toast(\''+esc(x.n).replace(/'/g,'')+' · '+MESES[m]+': '+(p==null?'sin datos':p+' %')+'\')" aria-label="'+esc(x.n)+', '+MESES[m]+': '+(p==null?'sin datos':p+' %')+'">'+(p?p:'')+'</button>';
+    });
+  }
+  return '<div class="card" style="padding:16px 14px 14px"><div class="row" style="justify-content:space-between;padding:0 2px"><div><p class="fn l2">Mapa de hábitos</p><p class="t2">'+y+'</p></div>'+
+    (years.length>1?'<div class="row" style="gap:4px"><button class="ibtn" style="width:36px;height:36px;background:var(--fill2)'+(y===years[0]?';opacity:.35':'')+'" onclick="HMY='+(y-1)+';render()" aria-label="Año anterior"'+(y===years[0]?' disabled':'')+'>'+ic('chevL',16,2.4)+'</button><button class="ibtn" style="width:36px;height:36px;background:var(--fill2)'+(y===years[years.length-1]?';opacity:.35':'')+'" onclick="HMY='+(y+1)+';render()" aria-label="Año siguiente"'+(y===years[years.length-1]?' disabled':'')+'>'+ic('chevR',16,2.4)+'</button></div>':'')+'</div>'+
+    '<p class="fn l2" style="padding:2px 2px 12px">Cada casilla, un hábito en un mes: el % de los días que tocaba y lo hiciste</p>'+
+    '<div class="hm"><div class="hm-fix">'+fix+'</div><div class="hm-sc"><div class="hm-g" style="grid-template-columns:repeat('+A.length+',minmax(36px,1fr))">'+grid+'</div></div></div>'+
+    '<div class="row" style="justify-content:flex-end;gap:6px;margin-top:12px"><span class="c1 l3">0 %</span><span class="hleg">'+['h1','h2','h3','h4','h5'].map(c=>'<i class="hm-x '+c+'" style="width:14px;height:10px;border-radius:3px;min-height:0"></i>').join('')+'</span><span class="c1 l3">100 %</span></div></div>';
 }
 function openBeltSheet(){
   const C=constancy();

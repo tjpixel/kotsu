@@ -348,6 +348,25 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .goalbox.ok{background:var(--tint);box-shadow:none}
 .strike{text-decoration:line-through;text-decoration-color:var(--label3)}
 .why{font-size:16px;line-height:23px;padding:14px 16px;border-radius:20px;background:var(--fill2);font-style:italic;color:var(--label)}
+/* mapa de hábitos (hábitos × meses) */
+.hm{display:flex;gap:6px}
+.hm-fix{display:grid;grid-template-rows:32px repeat(12,30px);gap:4px;flex-shrink:0}
+.hm-c{height:32px}
+.hm-m{width:30px;display:flex;align-items:center;font-size:12px;font-weight:600;color:var(--label3)}
+.hm-m.now{color:var(--ink)}
+.hm-sc{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+.hm-sc::-webkit-scrollbar{display:none}
+.hm-g{display:grid;grid-template-rows:32px repeat(12,30px);grid-auto-flow:row;gap:4px}
+.hm-h{height:32px;border-radius:9px;display:grid;place-items:center;color:var(--label2)}
+.hm-h:active{background:var(--fill2)}
+.hm-x{display:grid;place-items:center;border-radius:8px;font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);background:transparent;min-height:30px}
+.hm-x.h0{background:var(--fill2);color:var(--label3)}
+.hm-x.h1{background:color-mix(in srgb,var(--tint) 14%,var(--fill2))}
+.hm-x.h2{background:color-mix(in srgb,var(--tint) 30%,var(--fill2))}
+.hm-x.h3{background:color-mix(in srgb,var(--tint) 50%,var(--fill2))}
+.hm-x.h4{background:color-mix(in srgb,var(--tint) 72%,var(--fill2));color:var(--on-tint)}
+.hm-x.h5{background:var(--tint);color:var(--on-tint)}
+.hm-x.fut{background:transparent;box-shadow:inset 0 0 0 1px var(--sep)}
 /* anillo del día y línea de tiempo */
 .dring{position:relative;width:220px;height:220px;margin:0 auto}
 .dring svg{display:block}
