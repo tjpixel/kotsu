@@ -140,6 +140,38 @@ function moodInsight(n){
   return{hi:avg(hi),lo:avg(lo)};
 }
 
+/* ═════ APPS HERMANAS ═════
+   Tsuyo, Neiro y Kotsu viven en la misma dirección (tjpixel.github.io), así que en el mismo navegador
+   Kotsu puede leer lo que guardan las otras dos y marcar solo el hábito. En iOS: App Group compartido. */
+const SISTERS={
+  tsuyo:{n:'Tsuyo',path:'/tsuyo/',verb:'Entrenar',did:'entrenado'},
+  neiro:{n:'Neiro',path:'/neiro/',verb:'Practicar',did:'practicado'}
+};
+const sisterUrl=k=>location.origin+SISTERS[k].path;
+function sisterDays(k){
+  const out=new Set();
+  try{
+    if(k==='tsuyo'){
+      for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!/^tsuyo_v1(_|$)/.test(key)||/_(pref|mode)$/.test(key))continue;
+        let o=null;try{o=JSON.parse(localStorage.getItem(key))}catch(e){}
+        if(o&&o.sess&&typeof o.sess==='object')Object.keys(o.sess).forEach(d=>{const ex=o.sess[d]&&o.sess[d].ex;
+          if(isDate(d)&&ex&&Object.values(ex).some(a=>Array.isArray(a)&&a.some(x=>x&&x.r)))out.add(d)})}
+    }
+    if(k==='neiro'){
+      let o=null;try{o=JSON.parse(localStorage.getItem('neiro_v1')||'null')}catch(e){}
+      if(o&&Array.isArray(o.ss))o.ss.forEach(s=>{if(s&&isDate(s.d)&&((+s.m||0)>=5||s.g))out.add(s.d)});
+    }
+  }catch(e){}
+  return out;
+}
+/* qué hábito parece de cada app (al importar o al elegir una idea) */
+function guessApp(n,a){
+  n=String(n||'').toLowerCase();
+  if(/cant|canto|voz|vocal/.test(n))return'neiro';
+  if((a==='cuerpo'||!a)&&/ejercic|entren|gimnas|\bgym\b|pesas|fuerza/.test(n))return'tsuyo';
+  return'';
+}
+
 /* ═════ METAS ═════
    meta: {id,t,why,hz,hab:[ids de hábitos],st:[etapas],done}
    etapa: {id,t,per,obj,s:'done'|'now'|'next',tk:[{id,t,ok,tag}]} */

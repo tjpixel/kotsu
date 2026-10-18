@@ -37,6 +37,7 @@ function freshDB(){return{v:1,_ts:0,
   log:{},                 // {'AAAA-MM-DD':{idHábito:'HH:MM'|1}}
   notes:{},               // {'AAAA-MM-DD':{idHábito:'texto'}}
   mood:{},                // {'AAAA-MM-DD':{v:1-5,t:'nota'}}
+  via:{},                 // {'AAAA-MM-DD':{idHábito:'tsuyo'|'neiro'|'-'}} marcado por una app hermana ('-' = lo desmarcaste tú)
   goals:[]                // metas con etapas y tareas (ver core.js)
 }}
 const isObj=o=>o&&typeof o==='object'&&!Array.isArray(o);
@@ -45,7 +46,7 @@ function cleanHabit(h){
   if(!isObj(h)||!h.id||!h.n)return null;
   const days=Array.isArray(h.days)?[...new Set(h.days.map(Number).filter(n=>n>=0&&n<=6))]:ALLDAYS.slice();
   return{id:safeId(h.id),n:clean(h.n,60),ic:IC[h.ic]?h.ic:'star',a:AREAS[h.a]?h.a:'otros',days:days.length?days:ALLDAYS.slice(),
-    at:isTime(h.at)?h.at:'',mode:h.mode==='timer'?'timer':'check',min:Math.max(1,Math.min(240,parseInt(h.min)||10)),on:h.on!==false,since:isDate(h.since)?h.since:null};
+    at:isTime(h.at)?h.at:'',mode:h.mode==='timer'?'timer':'check',min:Math.max(1,Math.min(240,parseInt(h.min)||10)),on:h.on!==false,since:isDate(h.since)?h.since:null,app:SISTERS[h.app]?h.app:''};
 }
 function mergeDefaults(o){
   const f=freshDB();if(!isObj(o))return f;
@@ -56,6 +57,7 @@ function mergeDefaults(o){
     habits:(Array.isArray(o.habits)?o.habits:[]).map(cleanHabit).filter(Boolean),
     log:dmap(o.log,v=>isObj(v)&&Object.keys(v).length?v:null),
     notes:dmap(o.notes,v=>isObj(v)?v:null),
+    via:dmap(o.via,v=>isObj(v)?v:null),
     mood:dmap(o.mood,v=>isObj(v)&&v.v>=1&&v.v<=5?{v:+v.v,t:clean(v.t,1000)}:null),
     goals:(Array.isArray(o.goals)?o.goals:[]).filter(g=>isObj(g)&&g.t).map(g=>({id:g.id||uid(),t:clean(g.t,80),why:clean(g.why,600),hz:clean(g.hz,60),done:!!g.done,
       hab:Array.isArray(g.hab)?g.hab.filter(x=>typeof x==='string'):[],

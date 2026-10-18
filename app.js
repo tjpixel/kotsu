@@ -47,7 +47,8 @@ const IC={
   flag:'<path d="M5.5 21V4M5.5 4.5h11l-2.5 4 2.5 4h-11"/>',
   mountain:'<path d="M3 19.5l6.2-10 3.6 5.6 2.4-3.6 5.8 8z"/><path d="M15.2 11.5V4.5l3.6 1.6-3.6 1.6"/>',
   fire:'<path d="M12 21c-3.6 0-6-2.4-6-5.6 0-3.4 3-5.2 3.4-9 2.6 1.4 4 3.6 4 5.6 1-.6 1.6-1.7 1.8-3 1.8 1.6 2.8 3.8 2.8 6.4 0 3.2-2.4 5.6-6 5.6z"/>',
-  minimize:'<path d="M6 9.5l6 6 6-6"/>'
+  minimize:'<path d="M6 9.5l6 6 6-6"/>',
+  ext:'<path d="M14 5h5v5M19 5l-8 8M18 14v4a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 18V7.5A1.5 1.5 0 0 1 6.5 6H10"/>'
 };
 const HAB_IC=['star','lotus','dumbbell','walk','wind','drop','book','pen','cap','chat','target','list','sun','moon','bed','phone','note','belt','sword','heart','leaf','coffee','money','home'];
 const ic=(n,s=20,w=2)=>'<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(IC[n]||IC.star)+'</svg>';
@@ -229,13 +230,14 @@ function timelineHTML(H,d){
       g+='<span class="tlt c1 num" style="top:'+y+'px">'+String(k).padStart(2,'0')+':00</span><i class="tlg" style="top:'+(y+8)+'px"></i>';
       (by[k]||[]).forEach((x,j)=>{
         const on=doneOn(x.id,d),t=DB.log[d]&&DB.log[d][x.id],late=isT&&!on&&(+x.at.slice(0,2)*60+ +x.at.slice(3))<nm;
-        const sub=[x.at,x.mode==='timer'?x.min+' min':'',on&&isTime(t)?'hecho a las '+t:'',late?'<span class="amb">pendiente</span>':''].filter(Boolean).join(' · ');
+        const vi=viaOf(x.id,d);
+        const sub=[x.at,x.mode==='timer'&&!x.app?x.min+' min':'',on&&vi&&vi!=='-'?'hecho en '+SISTERS[vi].n:(on&&isTime(t)?'hecho a las '+t:''),late?'<span class="amb">pendiente</span>':''].filter(Boolean).join(' · ');
         const ey=y+4+j*(EV+6);
         g+='<i class="tld'+(on?' on':'')+'" style="top:'+(ey+EV/2-6)+'px"></i>'+
           '<div class="tle'+(on?' done':'')+'" style="top:'+ey+'px;height:'+EV+'px">'+
           '<button class="hck'+(on?' on':'')+(POP===x.id&&on?' pop':'')+'" style="margin-left:0;width:44px" onclick="toggleHabit(\''+x.id+'\',\''+d+'\')" aria-pressed="'+on+'" aria-label="'+(on?'Desmarcar ':'Marcar ')+esc(x.n)+'"'+(d>T()?' disabled style="opacity:.4"':'')+'><i>'+(on?ic('check',15,3):'')+'</i></button>'+
           '<button class="grow" style="min-width:0;text-align:left;align-self:stretch;display:flex;flex-direction:column;justify-content:center" onclick="openHabit(\''+x.id+'\',\''+d+'\')"><span class="bd ell" style="display:block">'+esc(x.n)+'</span><span class="fn l2 ell" style="display:block">'+sub+'</span></button>'+
-          (x.mode==='timer'&&!on&&isT?'<button class="tmr" style="margin-right:10px" onclick="startTimer(\''+x.id+'\')" aria-label="Empezar temporizador de '+esc(x.n)+'">'+ic('play',12)+x.min+' min</button>':'<span class="hico" style="width:30px;height:30px;border-radius:9px;margin:0 12px 0 6px">'+ic(x.ic,16)+'</span>')+
+          (x.app&&!on&&isT?sisBtn(x,'margin-right:10px'):x.mode==='timer'&&!on&&isT?'<button class="tmr" style="margin-right:10px" onclick="startTimer(\''+x.id+'\')" aria-label="Empezar temporizador de '+esc(x.n)+'">'+ic('play',12)+x.min+' min</button>':'<span class="hico" style="width:30px;height:30px;border-radius:9px;margin:0 12px 0 6px">'+ic(x.ic,16)+'</span>')+
           '</div>';
       });
     }
@@ -250,19 +252,22 @@ function timelineHTML(H,d){
 }
 function habitRow(x,d){
   const on=doneOn(x.id,d),S=streakOf(x),fut=d>T(),note=DB.notes[d]&&DB.notes[d][x.id];
-  const sub=[isTime(x.at)?x.at:'',x.mode==='timer'?x.min+' min':'',S.cur>=2?S.cur+' seguidos':'',note?'con nota':''].filter(Boolean).join(' · ')||AREAS[x.a].n;
+  const vi=viaOf(x.id,d),sis=x.app&&!on&&d===T();
+  const sub=[isTime(x.at)?x.at:'',x.mode==='timer'&&!x.app?x.min+' min':'',on&&vi&&vi!=='-'?'hecho en '+SISTERS[vi].n:'',S.cur>=2?S.cur+' seguidos':'',note?'con nota':''].filter(Boolean).join(' · ')||AREAS[x.a].n;
   return '<div class="cell hcell'+(on?' done':'')+'" style="padding-left:10px">'+
     '<button class="hck'+(on?' on':'')+(POP===x.id&&on?' pop':'')+'" onclick="toggleHabit(\''+x.id+'\',\''+d+'\')" aria-pressed="'+on+'" aria-label="'+(on?'Desmarcar ':'Marcar ')+esc(x.n)+'"'+(fut?' disabled style="opacity:.4"':'')+'><i>'+(on?ic('check',15,3):'')+'</i></button>'+
     '<button class="row grow" style="gap:0;min-width:0;text-align:left;align-self:stretch" onclick="openHabit(\''+x.id+'\',\''+d+'\')">'+hico(x)+
     '<div class="cb"><div class="tt"><p class="bd ell">'+esc(x.n)+'</p><p class="fn l2 ell">'+sub+'</p></div>'+
-    (x.mode==='timer'&&!on&&d===T()?'':chev())+'</div></button>'+
-    (x.mode==='timer'&&!on&&d===T()?'<div style="display:flex;align-items:center;padding-right:14px"><button class="tmr" onclick="startTimer(\''+x.id+'\')" aria-label="Empezar temporizador de '+esc(x.n)+'">'+ic('play',12)+x.min+' min</button></div>':'')+
+    ((x.mode==='timer'||sis)&&!on&&d===T()?'':chev())+'</div></button>'+
+    (sis?'<div style="display:flex;align-items:center;padding-right:14px">'+sisBtn(x)+'</div>':(x.mode==='timer'&&!on&&d===T()?'<div style="display:flex;align-items:center;padding-right:14px"><button class="tmr" onclick="startTimer(\''+x.id+'\')" aria-label="Empezar temporizador de '+esc(x.n)+'">'+ic('play',12)+x.min+' min</button></div>':''))+
     '</div>';
 }
 function toggleHabit(id,d){
   if(d>T())return toast('Ese día aún no ha llegado');
   const was=doneOn(id,d),before=dayStat(d);
-  setDone(id,d,!was);save();
+  setDone(id,d,!was);
+  if(was&&viaOf(id,d)&&viaOf(id,d)!=='-')DB.via[d][id]='-';else if(!was&&viaOf(id,d)==='-')delete DB.via[d][id];
+  save();
   if(!was){POP=id;try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}
     const after=dayStat(d);if(after.sch&&after.done===after.sch&&before.done<before.sch)setTimeout(()=>toast(d===T()?'¡Día completo!':'Día completo'),150);
     else if(after.pct>=FULL&&before.pct<FULL)setTimeout(()=>toast('Día cumplido'),150)}
@@ -271,6 +276,20 @@ function toggleHabit(id,d){
 function openOffToday(d){
   openSheet(()=>{const L=activeHabits().filter(x=>!schedOn(x,d)).sort(byTime);
     return{title:d===T()?'Hoy no tocan':'Ese día no tocaban',body:'<div class="pad"><p class="sb l2 center" style="padding:0 12px 16px">Si haces alguno igualmente, márcalo: suma, y no te resta nada.</p><div class="group">'+L.map(x=>habitRow(x,d)).join('')+'</div></div>'}});
+}
+
+/* ═════ APPS HERMANAS ═════ */
+const viaOf=(id,d)=>DB.via[d]&&DB.via[d][id];
+const sisBtn=(x,st)=>'<a class="tmr" href="'+sisterUrl(x.app)+'" target="_blank" rel="noopener"'+(st?' style="'+st+'"':'')+' onclick="event.stopPropagation()" aria-label="Abrir '+SISTERS[x.app].n+'">'+SISTERS[x.app].n+ic('ext',13,2.2)+'</a>';
+function syncSisters(){
+  const L=activeHabits().filter(x=>x.app);if(!L.length)return 0;
+  const from=shiftD(T(),-14);let n=0,today=[];
+  const cache={};
+  L.forEach(x=>{const D=cache[x.app]=cache[x.app]||sisterDays(x.app);
+    D.forEach(d=>{if(d<from||d>T()||(DB.cfg.start&&d<DB.cfg.start))return;if(doneOn(x.id,d)||viaOf(x.id,d)==='-')return;
+      setDone(x.id,d,true);(DB.via[d]=DB.via[d]||{})[x.id]=x.app;n++;if(d===T())today.push(x)})});
+  if(n){save();if(today.length)setTimeout(()=>toast('Hecho en '+SISTERS[today[0].app].n+': '+today[0].n),300)}
+  return n;
 }
 
 /* ═════ ÁNIMO ═════ */
@@ -309,11 +328,12 @@ function openHabit(id,d){
     const goals=(DB.goals||[]).filter(g=>(g.hab||[]).includes(id));
     return{title:esc(x.n),body:
       '<div class="pad stack">'+
-      '<div class="row" style="gap:14px;padding:0 4px">'+hico(x,52)+'<div class="grow"><p class="hl">'+AREAS[x.a].n+'</p><p class="fn l2">'+freqTxt(x.days)+(isTime(x.at)?' · '+x.at:'')+(x.mode==='timer'?' · '+x.min+' min':'')+'</p></div></div>'+
+      '<div class="row" style="gap:14px;padding:0 4px">'+hico(x,52)+'<div class="grow"><p class="hl">'+AREAS[x.a].n+'</p><p class="fn l2">'+freqTxt(x.days)+(isTime(x.at)?' · '+x.at:'')+(x.mode==='timer'?' · '+x.min+' min':'')+(x.app?' · con '+SISTERS[x.app].n:'')+'</p></div></div>'+
       '<div class="chips3">'+[[S.cur,'Racha'],[S.best,'Mejor racha'],[pctTxt(r30),'30 días']].map(([a,b])=>'<div style="flex:1;background:var(--sheet2)"><p class="t2 num">'+a+'</p><p class="c1 l2">'+b+'</p></div>').join('')+'</div>'+
       '<div class="card" style="padding:14px 14px 12px;background:var(--sheet2)">'+miniCal(x)+'</div>'+
-      (x.mode==='timer'&&!on&&d===T()?'<button class="btn pri" onclick="closeSheet();startTimer(\''+id+'\')">'+ic('play',18)+'Empezar · '+x.min+' min</button>':'')+
-      (d<=T()?'<button class="btn '+(on?'sec':(x.mode==='timer'&&d===T()?'sec':'pri'))+'" onclick="toggleHabit(\''+id+'\',\''+d+'\')">'+(on?'Desmarcar':ic('check',18,2.6)+'Hecho'+(d===T()?'':' el '+fmtD(d)))+'</button>':'')+
+      (x.app&&!on&&d===T()?'<a class="btn pri" href="'+sisterUrl(x.app)+'" target="_blank" rel="noopener">'+SISTERS[x.app].verb+' en '+SISTERS[x.app].n+ic('ext',17,2.2)+'</a><p class="fn l2 center" style="margin-top:-4px">Al volver a Kotsu se marca solo si has '+SISTERS[x.app].did+'.</p>':'')+
+      (x.mode==='timer'&&!x.app&&!on&&d===T()?'<button class="btn pri" onclick="closeSheet();startTimer(\''+id+'\')">'+ic('play',18)+'Empezar · '+x.min+' min</button>':'')+
+      (d<=T()?'<button class="btn '+(on?'sec':((x.mode==='timer'||x.app)&&d===T()?'sec':'pri'))+'" onclick="toggleHabit(\''+id+'\',\''+d+'\')">'+(on?'Desmarcar':ic('check',18,2.6)+'Hecho'+(d===T()?'':' el '+fmtD(d)))+'</button>':'')+
       (d<=T()?'<div class="field"><label for="hN">Nota · '+(d===T()?'hoy':fmtD(d))+'</label><textarea class="ta" id="hN" maxlength="600" placeholder="Cómo ha ido, qué has notado…" onchange="setNote(\''+id+'\',\''+d+'\',this.value)">'+esc(note)+'</textarea></div>':'')+
       (notes.length?'<p class="ghead" style="padding:8px 16px 0">Notas anteriores</p><div class="group">'+notes.map(k=>'<div class="cell static"><div class="cb" style="padding-left:2px"><div class="tt"><p class="fn l2">'+fmtDY(k)+'</p><p class="sb" style="white-space:pre-wrap">'+esc(DB.notes[k][id])+'</p></div></div></div>').join('')+'</div>':'')+
       (goals.length?'<p class="ghead" style="padding:8px 16px 0">Te acerca a</p><div class="group">'+goals.map(g=>'<button class="cell" onclick="closeSheet();GV=\''+g.id+'\';go(\'metas\')"><span class="ic soft">'+ic('mountain',17)+'</span><div class="cb"><span class="tt bd ell">'+esc(g.t)+'</span>'+chev()+'</div></button>').join('')+'</div>':'')+
@@ -331,7 +351,7 @@ let HE=null;
 function openEdit(id,push,preset){
   const x=id?habitById(id):null;
   if(!x&&activeHabits().length>=FREE_HABITS&&!isPlus())return openPlus('habits');
-  HE=x?JSON.parse(JSON.stringify(x)):Object.assign({id:null,n:'',ic:'star',a:(goalsAreas()[0]||'otros'),days:ALLDAYS.slice(),at:'',mode:'check',min:10,on:true},preset||{});
+  HE=x?JSON.parse(JSON.stringify(x)):Object.assign({id:null,n:'',ic:'star',a:(goalsAreas()[0]||'otros'),days:ALLDAYS.slice(),at:'',mode:'check',min:10,on:true,app:''},preset||{});
   if(!HE.days)HE.days=ALLDAYS.slice();
   openSheet(editSheet,push);
 }
@@ -347,6 +367,8 @@ function editSheet(){
     '<div class="field"><label for="heT">Hora (opcional) · ordena tu día en mañana, tarde y noche</label><div class="row"><input id="heT" type="time" class="grow" value="'+esc(e.at)+'" onchange="HE.at=this.value;drawSheet()">'+(e.at?'<button class="btn sec sm" onclick="HE.at=\'\';drawSheet()">Sin hora</button>':'')+'</div></div>'+
     '<div><p class="ghead" style="padding-left:16px">Cómo se hace</p><div class="segc"><button class="'+(e.mode==='check'?'on':'')+'" onclick="HE.mode=\'check\';drawSheet()">Marcar</button><button class="'+(e.mode==='timer'?'on':'')+'" onclick="HE.mode=\'timer\';drawSheet()">Con tiempo</button></div>'+
       (e.mode==='timer'?'<div class="row" style="justify-content:center;gap:18px;margin-top:14px"><button class="step" style="width:46px;height:46px" onclick="HE.min=Math.max(1,HE.min-(HE.min>15?5:1));drawSheet()" aria-label="Menos">'+ic('minus',20)+'</button><span class="t2 num" style="min-width:90px;text-align:center">'+e.min+' min</span><button class="step" style="width:46px;height:46px" onclick="HE.min=Math.min(240,HE.min+(HE.min>=15?5:1));drawSheet()" aria-label="Más">'+ic('plus',20)+'</button></div>':'<p class="fn l2" style="padding:8px 6px 0">Con tiempo abre un temporizador a pantalla completa y se marca solo al terminar.</p>')+'</div>'+
+    '<div><p class="ghead" style="padding-left:16px">Se hace en</p><div class="chips">'+[['','Solo Kotsu'],['tsuyo','Tsuyo'],['neiro','Neiro']].map(([k,l])=>'<button class="'+((e.app||'')===k?'on':'')+'" onclick="HE.app=\''+k+'\';drawSheet()">'+l+'</button>').join('')+'</div>'+
+      '<p class="fn l2" style="padding:8px 6px 0">'+(e.app?'Hoy tendrás un botón para abrir '+SISTERS[e.app].n+', y el hábito se marca solo cuando '+(e.app==='tsuyo'?'entrenes':'practiques')+' allí (en el mismo navegador).':'Únelo a Tsuyo o Neiro y se marcará solo al entrenar o practicar allí.')+'</p></div>'+
     (e.id?'<div class="stack" style="margin-top:8px"><button class="btn sec" onclick="archiveHabit()">'+(e.on===false?'Recuperar hábito':'Archivar')+'</button>'+
       '<button class="btn sec danger" onclick="confirmSheet(\'Borrar hábito\',\'Se borrará con todo su historial. Si solo quieres dejarlo por ahora, mejor archívalo.\',\'Borrar\',\'delHabit()\',true)">Borrar</button></div>':'')+
     '</div>'};
@@ -367,6 +389,7 @@ function delHabit(){
   const id=HE.id;DB.habits=DB.habits.filter(x=>x.id!==id);
   Object.keys(DB.log).forEach(d=>{delete DB.log[d][id];if(!Object.keys(DB.log[d]).length)delete DB.log[d]});
   Object.keys(DB.notes).forEach(d=>{delete DB.notes[d][id];if(!Object.keys(DB.notes[d]).length)delete DB.notes[d]});
+  Object.keys(DB.via).forEach(d=>{delete DB.via[d][id];if(!Object.keys(DB.via[d]).length)delete DB.via[d]});
   DB.goals.forEach(g=>g.hab=(g.hab||[]).filter(x=>x!==id));
   save();closeSheet();render();toast('Hábito borrado');
 }
@@ -386,7 +409,7 @@ function openManager(push){
 }
 function addSugg(n){
   const s=SUGG.find(x=>x.n===n);if(!s)return;
-  openEdit(null,true,{n:s.n,ic:s.ic,a:s.a,mode:s.mode||'check',min:s.min||10,at:s.at||'',days:(s.days||ALLDAYS).slice()});
+  openEdit(null,true,{n:s.n,ic:s.ic,a:s.a,mode:s.mode||'check',min:s.min||10,at:s.at||'',days:(s.days||ALLDAYS).slice(),app:guessApp(s.n,s.a)});
 }
 
 /* ═════ TEMPORIZADOR ═════ */
@@ -799,7 +822,7 @@ function fromNexa(d){
     if(!h||!h.id||!h.name)return;const id=safeId(h.id);ids[h.id]=id;
     const days=h.freq==='daily'||!Array.isArray(h.days)?ALLDAYS.slice():[...new Set(h.days.map(Number).filter(n=>n>=0&&n<=6).map(n=>(n+1)%7))];
     const a=NX_AREA[h.cat]||'otros';
-    habits.push(cleanHabit({id,n:h.name,ic:NX_EMO[h.emoji]||AREAS[a].ic,a,days:days.length?days:ALLDAYS.slice(),at:h.ts||'',mode:h.mode==='timer'?'timer':'check',min:h.dur||10,on:true}));
+    habits.push(cleanHabit({id,n:h.name,ic:NX_EMO[h.emoji]||AREAS[a].ic,a,days:days.length?days:ALLDAYS.slice(),at:h.ts||'',mode:h.mode==='timer'?'timer':'check',min:h.dur||10,on:true,app:guessApp(h.name,a)}));
     if(isObj(h.notes))Object.keys(h.notes).forEach(k=>{const m=/^(\d{4})_(\d{2})_(\d{2})$/.exec(k),n=h.notes[k];if(!m||!isObj(n))return;const dd=m[1]+'-'+m[2]+'-'+m[3];
       if(n.text){notes[dd]=notes[dd]||{};notes[dd][id]=clean(n.text,600)}
       if(+n.mood>=1&&+n.mood<=10)(moods[dd]=moods[dd]||[]).push(+n.mood)});
@@ -837,7 +860,7 @@ function impApply(){
   if(o.kind==='kotsu'){const keepP=DB.profile;DB=P;if(!DB.profile.done&&keepP.done)DB.profile=keepP}
   else if(o.kind==='metas'){DB.goals=(DB.goals||[]).concat(P.goals.map(g=>Object.assign(g,{id:uid()})))}
   else{
-    Object.assign(DB,{habits:P.habits,log:P.log,notes:P.notes,mood:P.mood});
+    Object.assign(DB,{habits:P.habits,log:P.log,notes:P.notes,mood:P.mood,via:{}});
     const first=Object.keys(P.log).sort()[0];if(first&&(!DB.cfg.start||first<DB.cfg.start))DB.cfg.start=first;
     if(!DB.profile.done){const c={};P.habits.forEach(x=>{if(x.a!=='otros')c[x.a]=(c[x.a]||0)+1});
       DB.profile=Object.assign({},DB.profile,{areas:Object.keys(c).sort((a,b)=>c[b]-c[a]).slice(0,3),moodOn:true,done:1})}
@@ -907,7 +930,7 @@ function onbArea(k){const i=ONB.areas.indexOf(k);if(i>=0)ONB.areas.splice(i,1);e
 function onbPick(n){const i=ONB.pick.indexOf(n);if(i>=0)ONB.pick.splice(i,1);else{if(onbTotal()>=FREE_HABITS&&!isPlus())return toast('Para empezar, hasta '+FREE_HABITS);ONB.pick.push(n)}renderOnb()}
 function onbOwn(){const n=clean(ONB.nt,60);if(!n)return;if(onbTotal()>=FREE_HABITS&&!isPlus())return toast('Para empezar, hasta '+FREE_HABITS);ONB.own.push(n);ONB.nt='';renderOnb()}
 function onbHabits(){
-  return ONB.pick.map(n=>{const s=SUGG.find(x=>x.n===n);return{n:s.n,ic:s.ic,a:s.a,mode:s.mode||'check',min:s.min||10,at:s.at||'',days:(s.days||ALLDAYS).slice()}})
+  return ONB.pick.map(n=>{const s=SUGG.find(x=>x.n===n);return{n:s.n,ic:s.ic,a:s.a,mode:s.mode||'check',min:s.min||10,at:s.at||'',days:(s.days||ALLDAYS).slice(),app:guessApp(s.n,s.a)}})
     .concat(ONB.own.map(n=>({n,ic:'star',a:ONB.areas[0]||'otros',mode:'check',min:10,at:'',days:ALLDAYS.slice()})));
 }
 function renderOnb(){
@@ -944,7 +967,7 @@ function showApp(){$('welcome').classList.remove('on');$('tabbar').hidden=false;
 function startApp(){
   started=true;load();applyLook();
   if(!(DB.profile&&DB.profile.done)){openOnb();return}
-  showApp();VD=T();go('hoy');
+  showApp();VD=T();syncSisters();go('hoy');
   const t=PREF.get('tmr',null);
   if(t&&t.d===T()&&habitById(t.id)){
     Object.assign(TM,{on:true,min:true,id:t.id,d:t.d,total:t.total,left:t.left,endAt:t.endAt,run:t.run,ph:'run',note:''});
@@ -957,7 +980,7 @@ function boot(){
   document.addEventListener('visibilitychange',()=>{
     if(!started||document.visibilityState!=='visible')return;
     if(TM.on){if(!TM.min)keepAwake(true);tmTick()}
-    if(T()!==curDate)render();
+    if(syncSisters()||T()!==curDate)render();
   });
   if(S.get(KEY+'_mode')==='local')startApp();else showWelcome();
 }
