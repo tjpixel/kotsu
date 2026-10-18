@@ -173,8 +173,6 @@ function renderHoy(){
   }
   h+='</div>';
   h+='<div class="sec"><div class="stitle"><h3 class="t3">'+(weekDates(VD)[0]===mondayOf(T())?'Esta semana':'Semana del '+fmtD(weekDates(VD)[0]))+'</h3><span class="fn l2">'+pctTxt(weekRate(mondayOf(VD)))+'</span></div><div class="pad"><div class="card" style="padding:14px 8px 12px">'+weekStrip()+'</div></div></div>';
-  const pi=hoyPanel();
-  h+='<div class="pad" style="padding-top:22px"><div class="segc" id="dseg" role="tablist" aria-label="Cómo ver el día">'+['Lista','Línea de tiempo'].map((l,i)=>'<button role="tab" class="'+(pi===i?'on':'')+'" aria-selected="'+(pi===i)+'" onclick="setHoyPanel('+i+')">'+l+'</button>').join('')+'</div></div>';
   let L1='';
   MOMENTS.forEach(([k,n])=>{
     const L=H.filter(x=>momentOf(x.at)===k);if(!L.length)return;
@@ -182,33 +180,40 @@ function renderHoy(){
     L1+='<div class="sec" style="padding-top:20px"><div class="stitle"><h3 class="t3">'+n+'</h3><span class="fn l2 num">'+dn+' de '+L.length+'</span></div><div class="pad"><div class="group">'+L.map(x=>habitRow(x,d)).join('')+'</div></div></div>';
   });
   if(!H.length)L1='<div class="pad" style="padding-top:20px"><div class="card empty">'+(isT?'Hoy no te toca ningún hábito.':'Ese día no tocaba ningún hábito.')+'</div></div>';
-  h+='<div class="dpan" id="dpan" onscroll="dpanScroll()"><div class="dslide" id="ds0">'+L1+'</div><div class="dslide" id="ds1">'+timelineHTML(H,d)+'</div></div>';
+  h+=swHTML('hoy',['Lista','Línea de tiempo'],[L1,timelineHTML(H,d)],22);
   const off=all.filter(x=>!schedOn(x,d));
   h+='<div class="sec"><div class="pad"><div class="group">'+
     (off.length?'<button class="cell" onclick="openOffToday(\''+d+'\')"><span class="ic gray">'+ic('cal',17)+'</span><div class="cb"><div class="tt"><p class="bd">'+(isT?'Hoy no tocan':'Ese día no tocaban')+'</p><p class="fn l2 ell">'+off.map(x=>esc(x.n)).join(', ')+'</p></div><span class="val num">'+off.length+'</span>'+chev()+'</div></button>':'')+
     '<button class="cell" onclick="openManager()"><span class="ic soft">'+ic('list',17)+'</span><div class="cb"><span class="tt bd">Mis hábitos</span><span class="val num">'+all.length+'</span>'+chev()+'</div></button></div></div></div>';
   v.innerHTML=h;
-  dpanSync(true);
+  swSync('hoy',true);
 }
 
-/* Lista ↔ Línea de tiempo: se desliza con el dedo o con el selector */
-const hoyPanel=()=>PREF.get('hoyPanel',0)===1?1:0;
-let DPI=0,dpRaf=null;
-function dpanSync(instant){
-  const c=$('dpan');if(!c)return;DPI=hoyPanel();
-  if(instant){c.style.scrollBehavior='auto';c.scrollLeft=DPI*c.clientWidth;c.style.scrollBehavior=''}
-  else c.scrollTo({left:DPI*c.clientWidth,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-  dpanHeight();
+/* vistas que se deslizan con el dedo o con el selector (Hoy: Lista ↔ Línea de tiempo; Progreso: Resumen ↔ Calendario ↔ Hábitos) */
+const SWP={hoy:{k:'hoyPanel',i:0,n:2},prog:{k:'progPanel',i:0,n:3}};
+const swIdx=(id,n)=>{const v=+PREF.get(SWP[id].k,0);return v>=0&&v<n?v:0};
+function swHTML(id,labels,slides,top){
+  const i=swIdx(id,slides.length);SWP[id].i=i;SWP[id].n=slides.length;
+  return '<div class="pad" style="padding-top:'+(top||16)+'px"><div class="segc" id="sg-'+id+'" role="tablist">'+labels.map((l,k)=>'<button role="tab" class="'+(i===k?'on':'')+'" aria-selected="'+(i===k)+'" onclick="swSet(\''+id+'\','+k+')">'+l+'</button>').join('')+'</div></div>'+
+    '<div class="dpan" id="sp-'+id+'" onscroll="swScroll(\''+id+'\')">'+slides.map((x,k)=>'<div class="dslide" id="sl-'+id+'-'+k+'">'+x+'</div>').join('')+'</div>';
 }
-function dpanHeight(){const c=$('dpan'),s=$('ds'+DPI);if(c&&s)c.style.height=s.offsetHeight+'px'}
-function setHoyPanel(i){PREF.set('hoyPanel',i);dpanSeg(i);dpanSync(false)}
-function dpanSeg(i){DPI=i;document.querySelectorAll('#dseg button').forEach((b,k)=>{b.classList.toggle('on',k===i);b.setAttribute('aria-selected',k===i)});dpanHeight()}
-function dpanScroll(){
-  if(dpRaf)return;
-  dpRaf=requestAnimationFrame(()=>{dpRaf=null;const c=$('dpan');if(!c||!c.clientWidth)return;
-    const i=Math.round(c.scrollLeft/c.clientWidth);if(i!==DPI&&(i===0||i===1)){PREF.set('hoyPanel',i);dpanSeg(i)}});
+function swSync(id,instant){
+  const c=$('sp-'+id);if(!c)return;const i=SWP[id].i;
+  if(instant){c.style.scrollBehavior='auto';c.scrollLeft=i*c.clientWidth;c.style.scrollBehavior=''}
+  else c.scrollTo({left:i*c.clientWidth,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  swHeight(id);
 }
-addEventListener('resize',()=>{if(cur==='hoy')dpanSync(true)});
+function swHeight(id){const c=$('sp-'+id),sl=$('sl-'+id+'-'+SWP[id].i);if(c&&sl)c.style.height=sl.offsetHeight+'px'}
+function swSeg(id,i){SWP[id].i=i;document.querySelectorAll('#sg-'+id+' button').forEach((b,k)=>{b.classList.toggle('on',k===i);b.setAttribute('aria-selected',k===i)});swHeight(id)}
+function swSet(id,i){PREF.set(SWP[id].k,i);swSeg(id,i);swSync(id,false)}
+const setHoyPanel=i=>swSet('hoy',i);
+const swRaf={};
+function swScroll(id){
+  if(swRaf[id])return;
+  swRaf[id]=requestAnimationFrame(()=>{swRaf[id]=null;const c=$('sp-'+id);if(!c||!c.clientWidth)return;
+    const i=Math.round(c.scrollLeft/c.clientWidth);if(i!==SWP[id].i&&i>=0&&i<SWP[id].n){PREF.set(SWP[id].k,i);swSeg(id,i)}});
+}
+addEventListener('resize',()=>Object.keys(SWP).forEach(id=>swSync(id,true)));
 
 /* línea de tiempo por horas, con la línea de «ahora» */
 function timelineHTML(H,d){
@@ -510,7 +515,7 @@ function heatmap(weeks){
 function renderProg(){
   const C=constancy(),goal=C.next?C.next[2]:C.belt[2],from=C.belt[2],cells=C.next?(goal-from):1,V=weekPcts(8),prev=V[V.length-2].p;
   const A=activeHabits();
-  let h='<div class="head"><div><h1 class="lt">Progreso</h1><p class="sb l2 sub">Tu constancia, poco a poco</p></div></div><div class="pad stack" style="padding-top:16px">';
+  let h='<div class="head"><div><h1 class="lt">Progreso</h1><p class="sb l2 sub">Tu constancia, poco a poco</p></div></div><div class="pad stack" style="padding-top:16px">';const P1=[],P2=[];
   h+='<button class="card" style="padding:16px 18px 16px 16px;display:block;width:100%;text-align:left" onclick="openBeltSheet()"><div class="row" style="gap:14px">'+
     '<div class="avatar" style="width:58px;height:58px;background:var(--fill2)"><span class="deshi" data-pose="stand" data-crop="head" data-box="58" data-still></span></div>'+
     '<div class="grow"><p class="fn l2">Constancia</p><p class="t2">Cinturón '+C.belt[1].toLowerCase()+'</p><p class="fn l2">'+plural(C.n,'semana')+' constante'+(C.n===1?'':'s')+(C.streak>1?' · '+C.streak+' seguidas':'')+'</p></div></div>'+
@@ -520,12 +525,14 @@ function renderProg(){
   h+='<div class="card" style="padding:16px 16px 14px"><p class="fn l2">Esta semana</p><div class="row" style="margin-top:2px;gap:8px"><span class="t2 num">'+pctTxt(C.week)+'</span>'+
     (C.week!=null&&prev!=null&&Math.abs(C.week-prev)>=.05?'<span class="pill '+(C.week>prev?'tint':'amb')+'">'+(C.week>prev?'Mejor':'Peor')+' que la anterior</span>':'')+'</div>'+
     '<p class="fn l2">De los hábitos que tocaban hasta hoy · constante desde el 75 %</p><div class="chart">'+pctChart(V)+'</div></div>';
+  P1.push(h);h='';
   const wk=isPlus()?53:FREE_WEEKS,since=shiftD(mondayOf(T()),-7*(wk-1));let full=0,tot=0;
   for(let d=since;d<=T();d=shiftD(d,1)){const k=dayKind(d);if(k==='rest')continue;tot++;if(k==='full')full++}
   h+='<div class="card" style="padding:16px 16px 14px"><div class="row" style="justify-content:space-between"><p class="fn l2">'+(isPlus()?'Último año':'Últimas '+wk+' semanas')+'</p>'+(isPlus()?'':'<button class="pill plus" onclick="openPlus()">Año entero</button>')+'</div>'+
     '<p class="t2 num" style="margin-top:2px">'+plural(full,'día')+' cumplido'+(full===1?'':'s')+'</p><p class="fn l2">De '+tot+' con hábitos · cumplido es hacer el 80 % o más</p><div style="margin-top:14px">'+heatmap(wk)+'</div>'+
     '<div class="row" style="justify-content:flex-end;gap:6px;margin-top:10px"><span class="c1 l3">Menos</span><span class="hleg"><i style="background:var(--fill2)"></i><i style="background:var(--tint-soft)"></i><i style="background:color-mix(in srgb,var(--tint) 60%,var(--fill2))"></i><i style="background:var(--tint)"></i></span><span class="c1 l3">Más</span></div></div>';
   h+=habitMapCard();
+  P2.push(h);h='';
   if(DB.profile.moodOn!==false){
     const L=Array.from({length:30},(_,i)=>{const d=shiftD(T(),i-29);return{v:moodOn(d),k:dayKind(d)}}),vals=L.map(m=>m.v).filter(Boolean),I=moodInsight(60);
     h+='<div class="card" style="padding:16px 16px 14px"><p class="fn l2">Ánimo</p><div class="row" style="margin-top:2px;gap:8px"><span class="t2 num">'+fmt1(avg(vals.slice(-14)))+'<span class="sb l3 semi"> de 5</span></span></div>'+
@@ -533,20 +540,32 @@ function renderProg(){
       (vals.length>=2?'<div class="chart">'+moodChart(L)+'</div><div class="row" style="gap:14px;margin-top:6px"><span class="c1 l2 row" style="gap:6px"><i style="width:9px;height:9px;border-radius:50%;background:var(--ink);display:block"></i>Día cumplido</span><span class="c1 l2 row" style="gap:6px"><i style="width:9px;height:9px;border-radius:50%;box-shadow:inset 0 0 0 1.6px var(--ink);display:block"></i>Resto</span></div>':'')+
       (I?'<div class="note" style="margin-top:12px;background:var(--tint-soft)"><span>'+(I.hi-I.lo>=.3?'Los días que cumples, tu ánimo es de <b class="ink">'+fmt1(I.hi)+'</b>; el resto, de '+fmt1(I.lo)+'. Tus hábitos te sientan bien.':(I.lo-I.hi>=.3?'Los días que cumples tu ánimo es algo más bajo ('+fmt1(I.hi)+' frente a '+fmt1(I.lo)+'). ¿Quizá te estás exigiendo demasiado?':'Tu ánimo es parecido cumplas o no ('+fmt1(I.hi)+' y '+fmt1(I.lo)+').'))+'</span></div>':'')+'</div>';
   }
-  h+='</div>';
+  P1.push(h);h='';
   if(A.length){
     const ar=AREA_ORDER.filter(k=>A.some(x=>x.a===k));
-    h+='<div class="sec"><div class="stitle"><h3 class="t3">Áreas</h3><span class="fn l2">Últimos 30 días</span></div><div class="pad"><div class="group">'+ar.map(k=>{
-      const L=A.filter(x=>x.a===k),rs=L.map(x=>rateOf(x,30)).filter(r=>r!=null),r=avg(rs);
-      return '<div class="cell static"><span class="ic soft">'+ic(AREAS[k].ic,17)+'</span><div class="cb"><div class="tt"><div class="row" style="justify-content:space-between"><p class="bd">'+AREAS[k].n+'</p><span class="fn l2 num">'+pctTxt(r)+'</span></div><div class="areabar"><i style="width:'+((r||0)*100).toFixed(0)+'%"></i></div></div></div></div>'}).join('')+'</div></div></div>';
-    h+='<div class="sec"><div class="stitle"><h3 class="t3">Hábitos</h3><span class="fn l2">Racha · 30 días</span></div><div class="pad"><div class="group">'+A.slice().sort((a,b)=>(rateOf(b,30)||0)-(rateOf(a,30)||0)).map(x=>{const S=streakOf(x);
-      return '<button class="cell" onclick="openHabit(\''+x.id+'\')">'+hico(x)+'<div class="cb"><div class="tt"><p class="bd ell">'+esc(x.n)+'</p><p class="fn l2">'+(S.cur?plural(S.cur,'día')+' seguido'+(S.cur===1?'':'s'):'Sin racha')+(S.best>S.cur?' · mejor '+S.best:'')+'</p></div><span class="val num">'+pctTxt(rateOf(x,30))+'</span>'+chev()+'</div></button>'}).join('')+'</div></div></div>';
+    h+='<div class="sec"><div class="stitle"><h3 class="t3">Áreas</h3><span class="fn l2">Últimos 30 días</span></div><div class="pad"><div class="agrid">'+ar.map(k=>{
+      const r=avg(A.filter(x=>x.a===k).map(x=>rateOf(x,30)).filter(r=>r!=null));
+      return '<div class="card" style="padding:12px 12px 11px"><div class="row" style="gap:8px"><span class="ic soft" style="width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex-shrink:0">'+ic(AREAS[k].ic,15)+'</span><span class="fn semi grow ell">'+AREAS[k].n+'</span></div>'+
+        '<p class="t3 num" style="margin-top:8px">'+pctTxt(r)+'</p><div class="areabar"><i style="width:'+((r||0)*100).toFixed(0)+'%"></i></div></div>'}).join('')+'</div></div></div>';
+    const R=A.map(x=>({x,r:rateOf(x,30),S:streakOf(x)})).sort((a,b)=>(b.r??-1)-(a.r??-1));
+    const cell=o=>'<button class="cell" onclick="openHabit(\''+o.x.id+'\')">'+hico(o.x)+'<div class="cb"><div class="tt"><p class="bd ell">'+esc(o.x.n)+'</p><p class="fn l2">'+(o.S.cur?plural(o.S.cur,'día')+' seguido'+(o.S.cur===1?'':'s'):'Sin racha')+(o.S.best>o.S.cur?' · mejor '+o.S.best:'')+'</p></div><span class="val num">'+pctTxt(o.r)+'</span>'+chev()+'</div></button>';
+    if(R.length<=6)h+='<div class="sec"><div class="stitle"><h3 class="t3">Hábitos</h3><span class="fn l2">Racha · 30 días</span></div><div class="pad"><div class="group">'+R.map(cell).join('')+'</div></div></div>';
+    else{
+      const low=R.filter(o=>o.r!=null).slice(-3).reverse();
+      h+='<div class="sec"><div class="stitle"><h3 class="t3">Mejor van</h3><span class="fn l2">Racha · 30 días</span></div><div class="pad"><div class="group">'+R.slice(0,3).map(cell).join('')+'</div></div></div>';
+      h+='<div class="sec"><div class="stitle"><h3 class="t3">Necesitan cariño</h3></div><div class="pad"><div class="group">'+low.map(cell).join('')+
+        '<button class="cell" onclick="openAllHabits()"><span class="ic soft">'+ic('list',17)+'</span><div class="cb"><span class="tt bd ink">Ver todos</span><span class="val num">'+R.length+'</span>'+chev()+'</div></button></div></div></div>';
+    }
   }
   h+='<div class="sec"><div class="stitle" style="justify-content:flex-start;gap:8px"><h3 class="t3">Más detalle</h3>'+(isPlus()?'':'<span class="pill plus">Plus</span>')+'</div><div class="pad"><div class="group">'+
     '<button class="cell" onclick="openYear()"><span class="ic soft">'+ic('cal',18)+'</span><div class="cb"><div class="tt"><p class="bd">Resumen del año</p><p class="fn l2">Mes a mes, tus mejores hábitos y tu ánimo</p></div>'+chev()+'</div></button>'+
     '<button class="cell" onclick="openNotes()"><span class="ic soft">'+ic('pen',18)+'</span><div class="cb"><div class="tt"><p class="bd">Notas</p>'+(isPlus()?'':'<p class="fn l2">Últimos 30 días; todas con Plus</p>')+'</div>'+chev()+'</div></button>'+
     '</div></div></div>';
-  $('v-progreso').innerHTML=h;
+  const S3=h.replace('<div class="sec">','<div class="sec" style="padding-top:16px">');
+  const S1=P1.join('')+'</div>',S2='<div class="pad stack" style="padding-top:16px">'+P2.join('')+'</div>';
+  $('v-progreso').innerHTML='<div class="head"><div><h1 class="lt">Progreso</h1><p class="sb l2 sub">Tu constancia, poco a poco</p></div></div>'+
+    swHTML('prog',['Resumen','Calendario','Hábitos'],[S1.replace(/^<div class="head">.*?<\/div><\/div>/,''),S2,S3],16);
+  swSync('prog',true);
 }
 /* mapa de hábitos: cada hábito en un mes, como el heatmap de NEXA */
 let HMY=new Date().getFullYear();
@@ -577,6 +596,10 @@ function habitMapCard(){
     '<p class="fn l2" style="padding:2px 2px 12px">Cada casilla, un hábito en un mes: el % de los días que tocaba y lo hiciste</p>'+
     '<div class="hm"><div class="hm-fix">'+fix+'</div><div class="hm-sc"><div class="hm-g" style="grid-template-columns:repeat('+A.length+',minmax(36px,1fr))">'+grid+'</div></div></div>'+
     '<div class="row" style="justify-content:flex-end;gap:6px;margin-top:12px"><span class="c1 l3">0 %</span><span class="hleg">'+['h1','h2','h3','h4','h5'].map(c=>'<i class="hm-x '+c+'" style="width:14px;height:10px;border-radius:3px;min-height:0"></i>').join('')+'</span><span class="c1 l3">100 %</span></div></div>';
+}
+function openAllHabits(){
+  openSheet(()=>{const R=activeHabits().map(x=>({x,r:rateOf(x,30),S:streakOf(x)})).sort((a,b)=>(b.r??-1)-(a.r??-1));
+    return{title:'Tus hábitos · 30 días',body:'<div class="pad"><div class="group">'+R.map(o=>'<button class="cell" onclick="openHabit(\''+o.x.id+'\')">'+hico(o.x)+'<div class="cb"><div class="tt"><p class="bd ell">'+esc(o.x.n)+'</p><p class="fn l2">'+(o.S.cur?plural(o.S.cur,'día')+' seguido'+(o.S.cur===1?'':'s'):'Sin racha')+(o.S.best>o.S.cur?' · mejor '+o.S.best:'')+'</p></div><span class="val num">'+pctTxt(o.r)+'</span>'+chev()+'</div></button>').join('')+'</div></div>'}});
 }
 function openBeltSheet(){
   const C=constancy();
