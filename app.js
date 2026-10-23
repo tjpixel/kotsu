@@ -427,18 +427,24 @@ function startTimer(id){
 }
 const tmLeft=()=>TM.run?Math.max(0,(TM.endAt-Date.now())/1000):TM.left;
 function tmPersist(){PREF.set('tmr',TM.on&&TM.ph==='run'?{id:TM.id,d:TM.d,total:TM.total,left:TM.left,endAt:TM.endAt,run:TM.run}:null)}
+/* temporizador: se vacía en sentido horario y avisa al acabarse: ámbar en los últimos 10 s, rojo en los 3 últimos, con vibración (como en Tsuyo) */
+const endCol=L=>L<=0?'var(--tint)':(L<=3.05?'var(--red)':(L<=10.05?'var(--warn)':'var(--tint)'));
+const endTxt=L=>L<=0?'':(L<=3.05?'var(--red)':(L<=10.05?'var(--amber)':''));
+let endPrev=null;
+function endBuzz(L){const p=endPrev;endPrev=L;if(p==null)return;if((p>10&&L<=10)||(p>3&&L<=3))try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}}
 function tmLoop(){clearInterval(TM.iv);TM.iv=setInterval(tmTick,250);tmTick()}
 function tmTick(){
   if(!TM.on||TM.ph!=='run')return;
   const l=tmLeft();
   if(l<=0){finishTimer(true);return}
-  const t=$('tmT');if(t)t.textContent=mmss(Math.ceil(l));
-  const r=$('tmR');if(r)r.setAttribute('stroke-dashoffset',(TM_C*(1-l/TM.total)).toFixed(1));
-  const a=$('accT');if(a)a.textContent=mmss(Math.ceil(l));
+  const t=$('tmT');if(t){t.textContent=mmss(Math.ceil(l));t.style.color=endTxt(l)}
+  const r=$('tmR');if(r){r.setAttribute('stroke-dashoffset',(-TM_C*(1-l/TM.total)).toFixed(1));r.setAttribute('stroke',endCol(l))}
+  const a=$('accT');if(a){a.textContent=mmss(Math.ceil(l));a.style.color=endTxt(l)}
+  endBuzz(l);
 }
 const TM_C=2*Math.PI*112;
 function tmToggle(){if(TM.run){TM.left=tmLeft();TM.run=false}else{TM.endAt=Date.now()+TM.left*1000;TM.run=true}tmPersist();renderTimer();renderAcc()}
-function tmAdd(){const l=tmLeft()+60;TM.total+=60;if(TM.run)TM.endAt=Date.now()+l*1000;else TM.left=l;tmPersist();tmTick()}
+function tmAdd(){endPrev=null;const l=tmLeft()+60;TM.total+=60;if(TM.run)TM.endAt=Date.now()+l*1000;else TM.left=l;tmPersist();tmTick()}
 function renderTimer(){
   const x=habitById(TM.id);if(!x){closeTimer();return}
   let h='';
@@ -446,8 +452,8 @@ function renderTimer(){
     const l=tmLeft();
     h='<div class="fnav"><button class="ibtn glass" onclick="minimizeTimer()" aria-label="Minimizar">'+ic('minimize',22,2.2)+'</button><p class="hl">'+esc(x.n)+'</p><button class="ibtn glass" onclick="confirmSheet(\'Dejar el temporizador\',\'No se marcará el hábito.\',\'Dejarlo\',\'closeSheet();closeTimer()\',true)" aria-label="Cerrar">'+ic('x',18,2.4)+'</button></div>'+
       '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:10px 0">'+
-      '<div class="tring"><svg width="250" height="250" viewBox="0 0 250 250"><circle cx="125" cy="125" r="112" fill="none" stroke="var(--fill2)" stroke-width="12"/><circle id="tmR" cx="125" cy="125" r="112" fill="none" stroke="var(--tint)" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+TM_C.toFixed(1)+'" stroke-dashoffset="'+(TM_C*(1-l/TM.total)).toFixed(1)+'"/></svg>'+
-        '<div class="in"><span class="big num" id="tmT" style="font-size:64px;line-height:70px">'+mmss(Math.ceil(l))+'</span><span class="fn l2">'+(TM.run?'de '+Math.round(TM.total/60)+' min':'En pausa')+'</span></div></div>'+
+      '<div class="tring"><svg width="250" height="250" viewBox="0 0 250 250"><circle cx="125" cy="125" r="112" fill="none" stroke="var(--fill2)" stroke-width="12"/><circle id="tmR" cx="125" cy="125" r="112" fill="none" stroke="'+endCol(l)+'" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+TM_C.toFixed(1)+'" stroke-dashoffset="'+(-TM_C*(1-l/TM.total)).toFixed(1)+'"/></svg>'+
+        '<div class="in"><span class="big num" id="tmT" style="font-size:64px;line-height:70px;color:'+endTxt(l)+'">'+mmss(Math.ceil(l))+'</span><span class="fn l2">'+(TM.run?'de '+Math.round(TM.total/60)+' min':'En pausa')+'</span></div></div>'+
       '<div style="display:flex;justify-content:center">'+dkStage(TM.run?POSE_AREA[x.a]||'stand':'stand',1.8)+'</div></div>'+
       '<div class="row" style="justify-content:center;gap:22px;padding-bottom:10px"><button class="step" onclick="tmAdd()" aria-label="Un minuto más"><span class="fn semi">+1</span></button>'+
         '<button class="step" style="width:78px;height:78px;background:var(--tint);color:var(--on-tint)" onclick="tmToggle()" aria-label="'+(TM.run?'Pausar':'Seguir')+'">'+ic(TM.run?'pause':'play',30)+'</button>'+
@@ -795,10 +801,41 @@ function drawSheet(){
   sh.dataset.k=String(SHS.length)+fn.name;
   if(same)sh.querySelector('.sbody').scrollTop=sc;
   if(aid&&same){const e=$(aid);if(e&&e.tagName!=='BUTTON'){e.focus();try{const n=e.value.length;e.setSelectionRange(n,n)}catch(x){}}}
-  sh.classList.add('on');$('scrim').classList.add('on');
+  sh.classList.add('on');$('scrim').classList.add('on');lockScroll(true);
 }
 function backSheet(){SHS.pop();SHS.length?drawSheet():closeSheet()}
-function closeSheet(){$('sheet').classList.remove('on');$('scrim').classList.remove('on');SHS.length=0;delete $('sheet').dataset.k;if(document.activeElement)document.activeElement.blur()}
+function closeSheet(){const sh=$('sheet');sh.classList.remove('on','drag');sh.style.transform='';$('scrim').classList.remove('on');$('scrim').style.opacity='';SHS.length=0;delete sh.dataset.k;lockScroll(false);if(document.activeElement)document.activeElement.blur()}
+/* con una hoja abierta, la pantalla de detrás no se mueve */
+let LOCKY=null;
+function lockScroll(on){
+  const b=document.body;
+  if(on&&LOCKY==null){LOCKY=window.scrollY;b.style.top=-LOCKY+'px';b.classList.add('locked')}
+  else if(!on&&LOCKY!=null){b.classList.remove('locked');b.style.top='';window.scrollTo(0,LOCKY);LOCKY=null}
+}
+/* arrastrar hacia abajo para cerrar, como en iOS: desde la barrita o la cabecera, o desde el contenido si ya está arriba del todo.
+   Un gesto que empieza de lado (carruseles, selectores) no cuenta. */
+(function(){
+  let x0=0,y0=0,t0=0,dy=0,on=false,ok=false;
+  const sh=()=>$('sheet');
+  document.addEventListener('touchstart',e=>{
+    const s=sh();if(!s||!s.classList.contains('on')||!s.contains(e.target)||e.touches.length>1){ok=false;return}
+    const body=s.querySelector('.sbody'),inHead=!!e.target.closest('.grabber,.shead')&&!e.target.closest('button');
+    ok=inHead||(body&&body.contains(e.target)&&body.scrollTop<=0&&!e.target.closest('input,textarea,select,.seg3,.segc'));
+    x0=e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now();dy=0;on=false;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!ok||e.touches.length>1)return;const s=sh();dy=e.touches[0].clientY-y0;const dx=e.touches[0].clientX-x0;
+    if(!on){if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>6){ok=false;return}if(dy>8){on=true;s.classList.add('drag')}else if(dy<-4){ok=false;return}else return}
+    e.preventDefault();const d=Math.max(0,dy);
+    s.style.transform='translate(-50%,'+d+'px)';$('scrim').style.opacity=String(Math.max(0,1-d/(s.offsetHeight||600)));
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!on){ok=false;return}
+    const s=sh(),v=dy/Math.max(1,Date.now()-t0);s.classList.remove('drag');on=false;ok=false;
+    if(dy>Math.min(140,s.offsetHeight*.3)||v>.6)closeSheet();
+    else{s.style.transform='';$('scrim').style.opacity=''}
+  });
+})();
 function confirmSheet(title,text,btn,fn,danger){
   openSheet(()=>({title,body:'<div class="pad">'+(text?'<p class="sb center" style="padding:0 12px">'+text+'</p>':'')+'<div class="stack" style="margin-top:18px"><button class="btn '+(danger?'sec danger':'pri')+'" onclick="'+fn.replace(/"/g,'&quot;')+'">'+btn+'</button><button class="btn sec" onclick="backSheet()">Cancelar</button></div></div>'}),true);
 }
@@ -1016,6 +1053,9 @@ function finishOnb(){
   save();$('onb').classList.remove('on');showApp();go('hoy');
 }
 
+/* tamaño bloqueado, como una app: sin pellizcar para ampliar ni doble toque (Safari ignora user-scalable) */
+['gesturestart','gesturechange'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
 /* ═════ ARRANQUE ═════ */
 function showApp(){$('welcome').classList.remove('on');$('tabbar').hidden=false;$('btnMe').hidden=false;$('btnTheme').hidden=false;applyTheme()}
 function startApp(){
